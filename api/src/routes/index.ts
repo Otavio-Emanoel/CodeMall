@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { userRoutes } from '../modules/users/user.routes';
-import { appRoutes } from '../modules/apps/app.routes';
+import { userRoutes } from './user.routes';
+import { productRoutes } from './product.routes';
+import { appRoutes } from './app.routes';
 // futuras: authRoutes, orderRoutes, paymentRoutes
 
 export const router = Router();
@@ -10,4 +11,5 @@ router.get('/ping', (_req: Request, res: Response) => {
 });
 
 router.use('/users', userRoutes);
+router.use('/products', productRoutes);
 router.use('/apps', appRoutes);

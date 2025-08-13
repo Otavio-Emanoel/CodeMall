@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
+import { appService } from '../services/app.service';
 
 export class AppController {
   async list(_req: Request, res: Response) {
-    res.json([{ id: 1, name: 'Exemplo App', price: 0 }]);
+    const apps = await appService.list();
+    res.json(apps);
   }
 }
