@@ -1,0 +1,30 @@
+{
+  "name": "codemall_api",
+  "version": "1.0.0",
+  "description": "API do marketplace CodeMall em NodeJS + TypeScript (MySQL).",
+  "keywords": ["api", "marketplace", "codemall"],
+  "license": "ISC",
+  "author": "Otavio-Emanoel",
+  "type": "commonjs",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc -p .",
+    "start": "node dist/server.js",
+    "lint": "echo 'add linter (eslint) posteriormente'",
+    "test": "echo 'sem testes ainda' && exit 0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mysql2": "^3.9.7"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.10",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.4"
+  }
+}
