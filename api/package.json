@@ -8,9 +8,12 @@
   "type": "commonjs",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+  "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc -p .",
     "start": "node dist/server.js",
+  "db:up": "docker compose up -d",
+  "db:down": "docker compose down -v",
+  "db:logs": "docker compose logs -f",
     "lint": "echo 'add linter (eslint) posteriormente'",
     "test": "echo 'sem testes ainda' && exit 0"
   },
