@@ -47,4 +47,35 @@ export const userRepository = {
     if (!created) throw new Error('Failed to create user');
     return created;
   },
+
+  async update(id: number, data: { name?: string; email?: string }): Promise<UserEntity> {
+    // Check conflict for email
+    if (data.email) {
+      const existing = await this.findByEmail(data.email);
+      if (existing && existing.id !== id) {
+        throw new Error('Email already in use');
+      }
+    }
+
+    const fields: string[] = [];
+    const values: any[] = [];
+    if (typeof data.name === 'string') {
+      fields.push('name = ?');
+      values.push(data.name);
+    }
+    if (typeof data.email === 'string') {
+      fields.push('email = ?');
+      values.push(data.email);
+    }
+    if (fields.length === 0) {
+      const current = await this.findById(id);
+      if (!current) throw new Error('User not found');
+      return current;
+    }
+    values.push(id);
+    await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+    const updated = await this.findById(id);
+    if (!updated) throw new Error('User not found');
+    return updated;
+  },
 };
