@@ -16,8 +16,10 @@
 - [x] Status do pedido (em andamento, entregue, cancelado) – `PATCH /api/orders/:id/status`
 
 ### ⭐ Avaliações
-- [ ] Compradores avaliam produtos/vendedores
-- [ ] Vendedores respondem avaliações
+- [x] Compradores avaliam produtos `POST /api/reviews`
+- [x] Listar avaliações `GET /api/reviews?targetType=product&targetId=101`
+- [x] Resumo das avaliações (Média e contagem) `GET /api/reviews/summary?targetType=product&targetId=101`
+- [x] Vendedores respondem avaliações `POST /api/reviews/{id}/reply`
 
 ### 🛡️ Administração
 - [ ] Rotas protegidas para admin (banir usuário, aprovar produto)
