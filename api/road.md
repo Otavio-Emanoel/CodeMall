@@ -3,12 +3,12 @@
 ### 👤 Perfil do Usuário
 - [x] Visualizar dados: `GET /api/users/:id`
 - [x] Editar dados: `PUT /api/users/:id`
-- [ ] Alterar senha
+- [x] Alterar senha
 
 ### 🛒 Produtos
-- [ ] CRUD de produtos (apenas vendedores)
-- [ ] Listagem pública de produtos
-- [ ] Filtros: categoria, preço, vendedor
+- [x] CRUD de produtos (apenas vendedores)
+- [x] Listagem pública de produtos
+- [x] Filtros: categoria, preço, vendedor
 
 ### 📦 Pedidos/Compras
 - [ ] Criar pedidos (compradores)

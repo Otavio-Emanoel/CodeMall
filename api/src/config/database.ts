@@ -78,6 +78,38 @@ export async function ensureDatabaseAndSchema(): Promise<void> {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
+    // Evolução de schema para products: category e seller_id
+    type ColRow2 = RowDataPacket & { COLUMN_NAME: string; COLUMN_TYPE: string };
+    const [prodCols] = await conn.query<ColRow2[]>(
+      `SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'`
+    );
+    const pcols = new Map(prodCols.map(r => [r.COLUMN_NAME, r] as const));
+    if (!pcols.has('category')) {
+      await conn.query(`ALTER TABLE products ADD COLUMN category VARCHAR(100) NULL AFTER type`);
+    }
+    if (!pcols.has('seller_id')) {
+      await conn.query(`ALTER TABLE products ADD COLUMN seller_id INT NULL AFTER price`);
+    }
+    // Índices para filtros e joins
+    type Idx2 = RowDataPacket & { index_name: string };
+    const [idxSeller] = await conn.query<Idx2[]>(
+      `SELECT index_name FROM information_schema.statistics
+       WHERE table_schema = DATABASE() AND table_name = 'products'
+         AND column_name = 'seller_id' LIMIT 1`
+    );
+    if (!Array.isArray(idxSeller) || idxSeller.length === 0) {
+      await conn.query(`CREATE INDEX idx_products_seller_id ON products(seller_id)`);
+    }
+    const [idxCategory] = await conn.query<Idx2[]>(
+      `SELECT index_name FROM information_schema.statistics
+       WHERE table_schema = DATABASE() AND table_name = 'products'
+         AND column_name = 'category' LIMIT 1`
+    );
+    if (!Array.isArray(idxCategory) || idxCategory.length === 0) {
+      await conn.query(`CREATE INDEX idx_products_category ON products(category)`);
+    }
+
     // Tabela de usuários (base mínima)
     await conn.query(`
       CREATE TABLE IF NOT EXISTS users (
