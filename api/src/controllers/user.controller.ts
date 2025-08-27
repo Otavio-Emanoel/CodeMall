@@ -41,4 +41,27 @@ export class UserController {
       res.status(status).json({ error: msg });
     }
   }
+
+  async updatePassword(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+    // @ts-ignore
+    const auth = (req as any).user as { sub: number | string; role: string } | undefined;
+    const isAdmin = auth?.role === 'admin';
+    const isSelf = String(auth?.sub) === String(id);
+    if (!isAdmin && !isSelf) return res.status(403).json({ error: 'Forbidden' });
+
+    const { currentPassword, newPassword } = req.body || {};
+    if (!newPassword || (!isAdmin && !currentPassword)) {
+      return res.status(400).json({ error: 'Missing newPassword or currentPassword' });
+    }
+    try {
+      await userService.changePassword(id, { currentPassword, newPassword }, { force: isAdmin && !isSelf });
+      res.json({ ok: true });
+    } catch (e: any) {
+      const msg = String(e?.message || 'Password update failed');
+      const status = /invalid|not found/i.test(msg) ? 400 : 500;
+      res.status(status).json({ error: msg });
+    }
+  }
 }

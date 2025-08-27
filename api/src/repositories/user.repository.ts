@@ -78,4 +78,8 @@ export const userRepository = {
     if (!updated) throw new Error('User not found');
     return updated;
   },
+
+  async updatePassword(id: number, password_hash: string): Promise<void> {
+    await pool.query(`UPDATE users SET password_hash = ? WHERE id = ?`, [password_hash, id]);
+  },
 };

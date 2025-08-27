@@ -8,3 +8,4 @@ export const userRoutes = Router();
 userRoutes.get('/', controller.list.bind(controller));
 userRoutes.get('/:id', requireAuth, controller.get.bind(controller));
 userRoutes.put('/:id', requireAuth, controller.update.bind(controller));
+userRoutes.put('/:id/password', requireAuth, controller.updatePassword.bind(controller));

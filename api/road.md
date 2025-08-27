@@ -1,39 +1,41 @@
-Perfil do usuário
+## 🗺️ Roadmap CodeMall API
 
-GET/PUT /api/users/:id para visualizar/editar dados do usuário (nome, email, etc).
-Permitir que o usuário altere a senha.
-Produtos
+### 👤 Perfil do Usuário
+- [x] Visualizar dados: `GET /api/users/:id`
+- [x] Editar dados: `PUT /api/users/:id`
+- [ ] Alterar senha
 
-CRUD de produtos (apenas vendedores podem criar/editar/remover).
-Listagem pública de produtos.
-Filtros por categoria, preço, vendedor, etc.
-Pedidos/Compras
+### 🛒 Produtos
+- [ ] CRUD de produtos (apenas vendedores)
+- [ ] Listagem pública de produtos
+- [ ] Filtros: categoria, preço, vendedor
 
-Criar pedidos (compradores podem comprar produtos).
-Listar pedidos do usuário (comprador/vendedor).
-Status do pedido (em andamento, entregue, cancelado).
-Avaliações
+### 📦 Pedidos/Compras
+- [ ] Criar pedidos (compradores)
+- [ ] Listar pedidos do usuário (comprador/vendedor)
+- [ ] Status do pedido (em andamento, entregue, cancelado)
 
-Compradores podem avaliar produtos e vendedores.
-Vendedores podem responder avaliações.
-Administração
+### ⭐ Avaliações
+- [ ] Compradores avaliam produtos/vendedores
+- [ ] Vendedores respondem avaliações
 
-Rotas protegidas para admin (ex: banir usuário, aprovar produto).
-Dashboard de métricas.
-Notificações
+### 🛡️ Administração
+- [ ] Rotas protegidas para admin (banir usuário, aprovar produto)
+- [ ] Dashboard de métricas
 
-Notificações para vendedores (nova venda, avaliação).
-Notificações para compradores (pedido enviado, resposta de vendedor).
-Favoritos
+### 🔔 Notificações
+- [ ] Vendedores: nova venda, avaliação
+- [ ] Compradores: pedido enviado, resposta de vendedor
 
-Compradores podem favoritar produtos/vendedores.
-Recuperação de senha
+### ❤️ Favoritos
+- [ ] Compradores podem favoritar produtos/vendedores
 
-Endpoint para solicitar e redefinir senha via email.
-Upload de imagens
+### 🔑 Recuperação de Senha
+- [ ] Solicitar e redefinir senha via email
 
-Permitir que vendedores adicionem fotos aos produtos.
-Segurança extra
+### 🖼️ Upload de Imagens
+- [ ] Vendedores podem adicionar fotos aos produtos
 
-Limitar tentativas de login.
-Logs de acesso.
+### 🔒 Segurança Extra
+- [ ] Limitar tentativas de login
+- [ ] Logs de acesso
