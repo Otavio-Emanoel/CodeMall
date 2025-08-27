@@ -11,9 +11,9 @@
 - [x] Filtros: categoria, preço, vendedor
 
 ### 📦 Pedidos/Compras
-- [ ] Criar pedidos (compradores)
-- [ ] Listar pedidos do usuário (comprador/vendedor)
-- [ ] Status do pedido (em andamento, entregue, cancelado)
+- [x] Criar pedidos (compradores) – `POST /api/orders`
+- [x] Listar pedidos do usuário (comprador/vendedor) – `GET /api/orders/mine/list?userId=&role=buyer|seller`
+- [x] Status do pedido (em andamento, entregue, cancelado) – `PATCH /api/orders/:id/status`
 
 ### ⭐ Avaliações
 - [ ] Compradores avaliam produtos/vendedores
