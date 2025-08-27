@@ -78,7 +78,7 @@ export async function ensureDatabaseAndSchema(): Promise<void> {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
-    // Opcional: tabela de usuários simples (como exemplo)
+    // Tabela de usuários (base mínima)
     await conn.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -87,6 +87,59 @@ export async function ensureDatabaseAndSchema(): Promise<void> {
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+
+    // Descobre colunas atuais da tabela users
+    type ColRow = RowDataPacket & { COLUMN_NAME: string; DATA_TYPE: string; COLUMN_TYPE: string; IS_NULLABLE: 'YES' | 'NO' };
+    const [colRows] = await conn.query<ColRow[]>(
+      `SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'`
+    );
+    const cols = new Map(colRows.map(r => [r.COLUMN_NAME, r] as const));
+
+    // Adiciona email se não existir (usar 191 para compatibilidade com índices em utf8mb4)
+    if (!cols.has('email')) {
+      await conn.query(`ALTER TABLE users ADD COLUMN email VARCHAR(191) NULL`);
+    } else {
+      // Se email existir mas for maior que 191, reduzir
+      const emailCol = cols.get('email')!;
+      const type = emailCol.COLUMN_TYPE.toLowerCase();
+      const match = type.match(/varchar\((\d+)\)/);
+      const size = match ? parseInt(match[1], 10) : null;
+      if (size && size > 191) {
+        await conn.query(`ALTER TABLE users MODIFY COLUMN email VARCHAR(191) NULL`);
+      }
+    }
+
+    // Adiciona password_hash se não existir
+    if (!cols.has('password_hash')) {
+      await conn.query(`ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NULL`);
+    }
+
+    // Garante tipo de role como ENUM
+    const roleCol = cols.get('role');
+    if (!roleCol || !roleCol.COLUMN_TYPE.toLowerCase().startsWith('enum(')) {
+      await conn.query(`
+        ALTER TABLE users
+        MODIFY COLUMN role ENUM('buyer','seller','admin') NOT NULL DEFAULT 'buyer'
+      `);
+    }
+
+    // Garante índice único em email (se não existir)
+    type IdxRow = RowDataPacket & { index_name: string };
+    const [idxRows] = await conn.query<IdxRow[]>(
+      `SELECT index_name
+       FROM information_schema.statistics
+       WHERE table_schema = DATABASE()
+         AND table_name = 'users'
+         AND column_name = 'email'
+         AND non_unique = 0
+       LIMIT 1`
+    );
+    if (!Array.isArray(idxRows) || idxRows.length === 0) {
+      // cria unique index (após garantir tamanho <= 191)
+      await conn.query(`ALTER TABLE users ADD UNIQUE uk_users_email (email)`);
+    }
 
     // 4) Seed básico de products se estiver vazio
     interface CountRow extends RowDataPacket { count: number }
