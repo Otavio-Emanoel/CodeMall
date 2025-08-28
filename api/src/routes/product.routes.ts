@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ProductController } from '../controllers/product.controller';
 import { requireAuth } from '../middlewares/auth.middleware';
+import { productImageRoutes } from './product-image.routes';
 
 const controller = new ProductController();
 export const productRoutes = Router();
@@ -10,3 +11,6 @@ productRoutes.get('/:id', controller.get.bind(controller));
 productRoutes.post('/', requireAuth, controller.create.bind(controller));
 productRoutes.put('/:id', requireAuth, controller.update.bind(controller));
 productRoutes.delete('/:id', requireAuth, controller.remove.bind(controller));
+
+// nested: /products/:productId/images
+productRoutes.use('/:productId/images', productImageRoutes);

@@ -114,6 +114,21 @@ export async function ensureDatabaseAndSchema(): Promise<void> {
       await conn.query(`CREATE INDEX idx_products_category ON products(category)`);
     }
 
+    // Tabela de imagens de produtos
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS product_images (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        product_id INT NOT NULL,
+        filename VARCHAR(255) NOT NULL,
+        url VARCHAR(512) NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_product_images_product_id (product_id),
+        CONSTRAINT fk_product_images_product
+          FOREIGN KEY (product_id) REFERENCES products(id)
+          ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
     // Tabela de usuários (base mínima)
     await conn.query(`
       CREATE TABLE IF NOT EXISTS users (

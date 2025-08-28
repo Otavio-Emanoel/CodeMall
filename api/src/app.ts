@@ -2,6 +2,8 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { router } from './routes/index';
+import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -9,6 +11,11 @@ export function createApp(): Application {
 	const app = express();
 	app.use(cors());
 	app.use(express.json());
+
+	// Static: uploads
+	const uploadDir = path.resolve(process.cwd(), 'uploads');
+	try { fs.mkdirSync(uploadDir, { recursive: true }); } catch {}
+	app.use('/uploads', express.static(uploadDir));
 
 	// Health check
 		app.get('/health', (_req: Request, res: Response) => {

@@ -41,11 +41,16 @@
   - `DELETE /api/favorites` { buyerId, targetType: 'product'|'seller', targetId }
   - `GET /api/favorites?buyerId=1[&targetType=product|seller]`
 
+### 🖼️ Upload de Imagens
+- [x] Vendedores podem adicionar fotos aos produtos
+  - `GET /api/products/:productId/images` (público)
+  - `POST /api/products/:productId/images` (Authorization: Bearer <token seller|admin do dono>)
+    - multipart/form-data campo `file` (até 5MB) OU JSON `{ "filename", "url" }`
+  - `DELETE /api/products/:productId/images/:imageId` (Authorization: Bearer <token seller|admin do dono>)
+  - Arquivos estáticos servidos em `/uploads/*`
+
 ### 🔑 Recuperação de Senha
 - [ ] Solicitar e redefinir senha via email
-
-### 🖼️ Upload de Imagens
-- [ ] Vendedores podem adicionar fotos aos produtos
 
 ### 🔒 Segurança Extra
 - [ ] Limitar tentativas de login
