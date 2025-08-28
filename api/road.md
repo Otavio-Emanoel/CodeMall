@@ -32,8 +32,8 @@
   - `GET /api/metrics/dashboard` (Authorization: Bearer <token admin>)
 
 ### 🔔 Notificações
-- [ ] Vendedores: nova venda, avaliação
-- [ ] Compradores: pedido enviado, resposta de vendedor
+- [x] Vendedores: nova venda, avaliação
+- [x] Compradores: pedido enviado, resposta de vendedor
 
 ### ❤️ Favoritos
 - [ ] Compradores podem favoritar produtos/vendedores

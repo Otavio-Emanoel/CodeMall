@@ -7,6 +7,7 @@ import { reviewRoutes } from './review.routes';
 import { adminRoutes } from './admin.routes';
 import { authRoutes } from './auth.routes';
 import { metricsRoutes } from './metrics.routes';
+import { notificationRoutes } from './notification.routes';
 // futuras: authRoutes, orderRoutes, paymentRoutes
 
 export const router = Router();
@@ -23,3 +24,4 @@ router.use('/reviews', reviewRoutes);
 router.use('/admin', adminRoutes);
 router.use('/auth', authRoutes);
 router.use('/metrics', metricsRoutes);
+router.use('/notifications', notificationRoutes);
