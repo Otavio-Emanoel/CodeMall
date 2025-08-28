@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -44,6 +45,7 @@ export default function SellerProfilePage() {
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [sales, setSales] = useState<Order[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [productImages, setProductImages] = useState<Record<number, string>>({});
 
   useEffect(() => {
     let mounted = true;
@@ -91,6 +93,47 @@ export default function SellerProfilePage() {
     if (Number.isFinite(sellerId)) load();
     return () => { mounted = false };
   }, [sellerId, toast]);
+
+  // Helper para normalizar URL de imagens da API (ex.: /uploads/xyz)
+  function normalizeUrl(u?: string) {
+    if (!u) return ''
+    if (u.startsWith('http')) return u
+    if (u.startsWith('/')) return `${API_URL}${u}`
+    return u
+  }
+
+  // Carrega a primeira imagem de cada produto
+  useEffect(() => {
+    let cancelled = false
+    async function loadImages() {
+      const missing = products.filter(p => !(p.id in productImages))
+      if (missing.length === 0) return
+      try {
+        const results = await Promise.allSettled(
+          missing.map(async (p) => {
+            const res = await fetch(`${API_URL}/api/products/${p.id}/images`)
+            const data = await res.json().catch(() => ({}))
+            const list = Array.isArray(data?.data) ? data.data : []
+            const first = list[0]
+            return [p.id, first ? normalizeUrl(first.url) : ''] as [number, string]
+          })
+        )
+        if (cancelled) return
+        const next: Record<number, string> = { ...productImages }
+        for (const r of results) {
+          if (r.status === 'fulfilled') {
+            const [id, url] = r.value
+            if (url) next[id] = url
+          }
+        }
+        setProductImages(next)
+      } catch {
+        // silencioso
+      }
+    }
+    loadImages()
+    return () => { cancelled = true }
+  }, [products, productImages])
 
   const stats = useMemo(() => {
     const totalProducts = products.length;
@@ -166,9 +209,11 @@ export default function SellerProfilePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {products.map((p) => (
                       <Card key={p.id} className="border-0 bg-white rounded-2xl shadow-lg overflow-hidden">
-                        <div className="relative h-40 w-full">
-                          <Image src={"/placeholder.jpg"} alt={p.name} fill className="object-cover" />
-                        </div>
+                        <Link href={`/product/${p.id}`} className="block">
+                          <div className="relative h-40 w-full">
+                            <Image src={productImages[p.id] || "/placeholder.jpg"} alt={p.name} fill className="object-cover" />
+                          </div>
+                        </Link>
                         <CardContent className="p-4 space-y-2">
                           <div className="flex items-center justify-between">
                             <h4 className="font-semibold text-sage-800 line-clamp-1">{p.name}</h4>
@@ -178,7 +223,9 @@ export default function SellerProfilePage() {
                             <span className="text-sage-700">{p.type}</span>
                             <span className="font-bold text-sage-900">R$ {Number(p.price).toFixed(2)}</span>
                           </div>
-                          <Button className="w-full mt-2" variant="outline">Ver detalhes</Button>
+                          <Button asChild className="w-full mt-2" variant="outline">
+                            <Link href={`/product/${p.id}`}>Ver detalhes</Link>
+                          </Button>
                         </CardContent>
                       </Card>
                     ))}

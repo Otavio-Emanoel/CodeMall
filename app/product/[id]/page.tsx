@@ -1,297 +1,372 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
-import { Sidebar } from "@/components/layout/sidebar"
-import { Header } from "@/components/layout/header"
+import Link from "next/link"
+import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Heart, Star, ShoppingCart, Truck, Shield, RotateCcw, Award, Plus, Minus } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333"
+
+type Product = {
+  id: number
+  name: string
+  type: string
+  category?: string | null
+  price: number
+  seller_id?: number | null
+  created_at?: string
+}
+
+type ProductImage = { id: number; url: string; filename: string }
+type AuthUser = { id: number; role: 'buyer' | 'seller' | 'admin'; email?: string }
 
 export default function ProductDetail() {
-  const [selectedImage, setSelectedImage] = useState(0)
-  const [selectedSize, setSelectedSize] = useState("M")
-  const [quantity, setQuantity] = useState(1)
-  const [isWishlisted, setIsWishlisted] = useState(false)
+  const params = useParams<{ id: string }>()
+  const id = Number(params?.id)
 
-  const product = {
-    id: "1",
-    name: "Monocle Canvas Tote Bag",
-    price: 213.99,
-    originalPrice: 299.99,
-    discount: 29,
-    rating: 4.9,
-    reviews: 234,
-    description:
-      "Crafted from premium canvas with leather accents, this tote bag combines style and functionality. Perfect for daily use, work, or travel. Features multiple compartments and a secure zip closure.",
-    features: [
-      "Premium canvas construction",
-      "Genuine leather handles and trim",
-      "Multiple interior compartments",
-      "Secure zip closure",
-      'Dimensions: 15" x 12" x 5"',
-      "Sustainable materials",
-    ],
-    images: [
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/The%20Best%20Media%20Tote%20Bags,%20Ranked.jpg-z2O2nGPSTrjey8xEM1cc5aTI2ggjXE.jpeg",
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Index,%20Vanderbrand.jpg-Fv7HHkBaQgZe7HG3hbz5aojPoFRIuo.jpeg",
-      "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/download%20(2).jpg-zbeT25jMphcVf4DmpAlTVsGALg88Zn.jpeg",
-    ],
-    sizes: ["S", "M", "L", "XL"],
-    inStock: true,
-    badge: "Bestseller",
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [product, setProduct] = useState<Product | null>(null)
+  const [images, setImages] = useState<ProductImage[]>([])
+  const [rating, setRating] = useState<{ avg: number; count: number }>({ avg: 0, count: 0 })
+  const [selectedIdx, setSelectedIdx] = useState(0)
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+
+  // Edit form state
+  const [editName, setEditName] = useState("")
+  const [editType, setEditType] = useState("")
+  const [editCategory, setEditCategory] = useState("")
+  const [editPrice, setEditPrice] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string>("")
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      if (!Number.isFinite(id)) return
+      setLoading(true)
+      setError("")
+      try {
+        const [pr, im, rv] = await Promise.all([
+          fetch(`${API_URL}/api/products/${id}`),
+          fetch(`${API_URL}/api/products/${id}/images`),
+          fetch(`${API_URL}/api/reviews/summary?targetType=product&targetId=${id}`),
+        ])
+        const pData = await pr.json()
+        if (!pr.ok) throw new Error(pData?.error || "Falha ao carregar produto")
+        const imData = await im.json().catch(() => ({}))
+        const rvData = await rv.json().catch(() => ({}))
+        if (mounted) {
+          setProduct(pData)
+          setImages(Array.isArray(imData?.data) ? imData.data : [])
+          const avg = typeof rvData?.avg === "number" ? rvData.avg : 0
+          const count = typeof rvData?.count === "number" ? rvData.count : 0
+          setRating({ avg, count })
+        }
+      } catch (e: any) {
+        if (mounted) setError(e?.message || "Erro inesperado")
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [id])
+
+  // Load current user from token
+  useEffect(() => {
+    let mounted = true
+    async function loadMe() {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+        if (!token) return
+        const res = await fetch(`${API_URL}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        const data = await res.json()
+        if (!res.ok) return
+        if (mounted) setAuthUser(data?.user || null)
+      } catch {}
+    }
+    loadMe()
+    return () => { mounted = false }
+  }, [])
+
+  // Prefill edit form when product loads
+  useEffect(() => {
+    if (product) {
+      setEditName(product.name || "")
+      setEditType(product.type || "")
+      setEditCategory(product.category || "")
+      setEditPrice(String(product.price ?? ""))
+    }
+  }, [product])
+
+  function normalizeUrl(u?: string) {
+    if (!u) return "/placeholder.jpg"
+    if (u.startsWith("http")) return u
+    if (u.startsWith("/")) return `${API_URL}${u}`
+    return u
   }
 
-  const reviews = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      rating: 5,
-      date: "Dec 10, 2023",
-      comment: "Absolutely love this tote! The quality is exceptional and it fits everything I need for work.",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: 2,
-      name: "Mike Chen",
-      rating: 5,
-      date: "Dec 8, 2023",
-      comment: "Great bag, very sturdy and stylish. The leather handles are a nice touch.",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-    {
-      id: 3,
-      name: "Emma Wilson",
-      rating: 4,
-      date: "Dec 5, 2023",
-      comment: "Beautiful bag, exactly as described. Fast shipping too!",
-      avatar: "/placeholder.svg?height=40&width=40",
-    },
-  ]
+  const mainImage = useMemo(() => normalizeUrl(images?.[selectedIdx]?.url), [images, selectedIdx])
 
-  const benefits = [
-    { icon: Truck, title: "Free Shipping", description: "On orders over $100" },
-    { icon: RotateCcw, title: "30-Day Returns", description: "Easy returns & exchanges" },
-    { icon: Shield, title: "2-Year Warranty", description: "Quality guarantee" },
-    { icon: Award, title: "Premium Quality", description: "Handcrafted materials" },
-  ]
+  function formatBRL(v: number) {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v)
+  }
+
+  const isOwner = !!(product && authUser && (authUser.role === 'seller' || authUser.role === 'admin') && Number(product.seller_id) === Number(authUser.id))
+
+  async function saveEdits() {
+    if (!product) return
+    try {
+      setBusy(true)
+      setMsg("")
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      const body = {
+        name: editName.trim(),
+        type: editType.trim(),
+        category: editCategory.trim() || null,
+        price: Number(editPrice),
+      }
+      const res = await fetch(`${API_URL}/api/products/${product.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Falha ao salvar')
+      setProduct(data)
+      setMsg('Alterações salvas com sucesso.')
+    } catch (e: any) {
+      setMsg(e?.message || 'Erro ao salvar')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function uploadImageFile(file: File) {
+    if (!product) return
+    try {
+      setBusy(true)
+      setMsg("")
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch(`${API_URL}/api/products/${product.id}/images`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } as any : undefined,
+        body: form,
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Falha no upload')
+      setImages((prev) => [data, ...prev])
+      setMsg('Imagem enviada.')
+    } catch (e: any) {
+      setMsg(e?.message || 'Erro no upload')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function uploadImageUrl(url: string) {
+    if (!product) return
+    try {
+      setBusy(true)
+      setMsg("")
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      const body = { filename: url.split('/').pop() || 'image', url }
+      const res = await fetch(`${API_URL}/api/products/${product.id}/images`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Falha ao adicionar URL')
+      setImages((prev) => [data, ...prev])
+      setMsg('Imagem adicionada.')
+    } catch (e: any) {
+      setMsg(e?.message || 'Erro ao adicionar URL')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeImage(imageId: number) {
+    if (!product) return
+    try {
+      setBusy(true)
+      setMsg("")
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      const res = await fetch(`${API_URL}/api/products/${product.id}/images/${imageId}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || 'Falha ao remover imagem')
+      }
+      setImages((prev) => prev.filter((im) => im.id !== imageId))
+      setMsg('Imagem removida.')
+    } catch (e: any) {
+      setMsg(e?.message || 'Erro ao remover imagem')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-cream-50 via-sage-50 to-cream-100">
-      <Sidebar />
-
-      <main className="flex-1 px-8 py-8">
-        <Header title="Product Details" subtitle="Discover our premium tote bag collection" />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
-          {/* Product Images */}
-          <div className="space-y-4">
-            <div className="relative">
-              <Image
-                src={product.images[selectedImage] || "/placeholder.svg"}
-                alt={product.name}
-                width={600}
-                height={600}
-                className="w-full h-[500px] object-cover rounded-3xl shadow-2xl"
-              />
-              <div className="absolute top-4 left-4">
-                <Badge className="bg-green-500 text-white">{product.badge}</Badge>
-              </div>
-              <div className="absolute top-4 right-4">
-                <Badge variant="destructive">-{product.discount}%</Badge>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              {product.images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  className={`relative w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${
-                    selectedImage === index ? "border-sage-600 scale-105" : "border-sage-200 hover:border-sage-400"
-                  }`}
-                >
-                  <Image
-                    src={image || "/placeholder.svg"}
-                    alt={`${product.name} ${index + 1}`}
-                    width={80}
-                    height={80}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Product Info */}
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-4xl font-bold text-sage-800 mb-4">{product.name}</h1>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-5 h-5 ${i < Math.floor(product.rating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sage-600">({product.reviews} reviews)</span>
-                </div>
-                <Badge className={product.inStock ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                  {product.inStock ? "In Stock" : "Out of Stock"}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-4 mb-6">
-                <span className="text-4xl font-bold text-sage-800">${product.price}</span>
-                <span className="text-2xl text-gray-400 line-through">${product.originalPrice}</span>
-                <Badge variant="destructive" className="text-lg px-3 py-1">
-                  Save ${(product.originalPrice - product.price).toFixed(2)}
-                </Badge>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <h3 className="text-lg font-semibold text-sage-800 mb-3">Size</h3>
-              <div className="flex gap-3">
-                {product.sizes.map((size) => (
-                  <Button
-                    key={size}
-                    variant={selectedSize === size ? "default" : "outline"}
-                    className={`w-12 h-12 rounded-full ${
-                      selectedSize === size
-                        ? "bg-sage-600 hover:bg-sage-700"
-                        : "border-sage-300 text-sage-700 hover:bg-sage-50"
-                    }`}
-                    onClick={() => setSelectedSize(size)}
-                  >
-                    {size}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-sage-800 mb-3">Quantity</h3>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center border border-sage-300 rounded-full">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="rounded-full"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="px-4 py-2 font-semibold">{quantity}</span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="rounded-full"
-                    onClick={() => setQuantity(quantity + 1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <Button
-                className="flex-1 bg-sage-600 hover:bg-sage-700 text-white py-4 text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-                disabled={!product.inStock}
-              >
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                Add to Cart - ${(product.price * quantity).toFixed(2)}
-              </Button>
-              <Button
-                size="icon"
-                variant="outline"
-                className="w-14 h-14 rounded-full border-sage-300 hover:bg-sage-50 bg-transparent"
-                onClick={() => setIsWishlisted(!isWishlisted)}
-              >
-                <Heart className={`h-6 w-6 ${isWishlisted ? "fill-red-500 text-red-500" : "text-sage-600"}`} />
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {benefits.map((benefit, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 bg-sage-50 rounded-xl">
-                  <div className="p-2 bg-sage-100 rounded-full">
-                    <benefit.icon className="h-5 w-5 text-sage-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sage-800 text-sm">{benefit.title}</p>
-                    <p className="text-sage-600 text-xs">{benefit.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Product Details & Reviews */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="border-0 bg-white/90 backdrop-blur-sm shadow-xl">
-            <CardContent className="p-8">
-              <h3 className="text-2xl font-bold text-sage-800 mb-6">Product Details</h3>
-              <p className="text-sage-700 mb-6 leading-relaxed">{product.description}</p>
-              <h4 className="text-lg font-semibold text-sage-800 mb-4">Features</h4>
-              <ul className="space-y-2">
-                {product.features.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3 text-sage-700">
-                    <div className="w-2 h-2 bg-sage-600 rounded-full"></div>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
+    <div className="min-h-[70vh] w-full px-6 py-8">
+      <div className="max-w-6xl mx-auto">
+        {loading ? (
+          <p className="text-sage-600">Carregando produto...</p>
+        ) : error ? (
+          <Card className="border-0 bg-red-50">
+            <CardContent className="p-6 text-red-700">{error}</CardContent>
           </Card>
+        ) : !product ? (
+          <p className="text-sage-700">Produto não encontrado.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <div className="relative aspect-square w-full overflow-hidden rounded-xl border bg-white">
+                <Image src={mainImage} alt={product.name} fill className="object-cover" />
+              </div>
+              {images.length > 1 && (
+                <div className="mt-3 grid grid-cols-5 gap-2">
+                  {images.slice(0, 5).map((img, idx) => (
+                    <button
+                      key={img.id}
+                      onClick={() => setSelectedIdx(idx)}
+                      className={`relative aspect-square overflow-hidden rounded-md border ${idx === selectedIdx ? "ring-2 ring-sage-600" : ""}`}
+                    >
+                      <Image src={normalizeUrl(img.url)} alt={img.filename} fill className="object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          <Card className="border-0 bg-white/90 backdrop-blur-sm shadow-xl">
-            <CardContent className="p-8">
-              <h3 className="text-2xl font-bold text-sage-800 mb-6">Customer Reviews</h3>
-              <div className="space-y-6">
-                {reviews.map((review) => (
-                  <div key={review.id} className="border-b border-sage-100 pb-6 last:border-b-0">
-                    <div className="flex items-start gap-4">
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage src={review.avatar || "/placeholder.svg"} alt={review.name} />
-                        <AvatarFallback className="bg-sage-100 text-sage-700">
-                          {review.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-semibold text-sage-800">{review.name}</h4>
-                          <span className="text-sm text-sage-600">{review.date}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mb-3">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-4 h-4 ${i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
-                            />
-                          ))}
-                        </div>
-                        <p className="text-sage-700">{review.comment}</p>
-                      </div>
+            <div>
+              <h1 className="text-2xl font-bold text-sage-900">{product.name}</h1>
+              <div className="mt-2 flex items-center gap-3 text-sm text-sage-700">
+                {product.category && <Badge variant="secondary">{product.category}</Badge>}
+                <span>{product.type}</span>
+                <span className="ml-auto">⭐ {rating.avg.toFixed(1)} ({rating.count})</span>
+              </div>
+
+              <div className="mt-6 text-3xl font-bold text-sage-900">{formatBRL(product.price)}</div>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href={`/checkout?productId=${product.id}`}
+                  className="inline-flex items-center justify-center rounded-md bg-sage-600 px-5 py-3 font-medium text-white hover:bg-sage-700"
+                >
+                  Comprar agora
+                </Link>
+                <Button variant="outline" className="px-5 py-3">Adicionar ao carrinho</Button>
+              </div>
+
+              <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="rounded-md border p-4">
+                  <h2 className="mb-2 font-semibold text-sage-800">Informações</h2>
+                  <ul className="text-sage-700">
+                    <li>ID: {product.id}</li>
+                    {product.category && <li>Categoria: {product.category}</li>}
+                    <li>Tipo: {product.type}</li>
+                    {product.created_at && <li>Criado em: {new Date(product.created_at).toLocaleString()}</li>}
+                  </ul>
+                </div>
+                <div className="rounded-md border p-4">
+                  <h2 className="mb-2 font-semibold text-sage-800">Vendedor</h2>
+                  {product.seller_id ? (
+                    <div className="text-sage-700">
+                      <p>ID do vendedor: {product.seller_id}</p>
+                      <Link className="text-sage-700 underline" href={`/seller/${product.seller_id}`}>Ver loja</Link>
+                    </div>
+                  ) : (
+                    <p className="text-sage-600">Não informado</p>
+                  )}
+                </div>
+              </div>
+
+              {isOwner && (
+                <div className="mt-8 space-y-6">
+                  <h2 className="text-lg font-semibold text-sage-900">Gerenciar produto</h2>
+                  {msg && (
+                    <div className="text-sm text-sage-800 bg-sage-50 border border-sage-200 rounded-md p-2">{msg}</div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name">Nome</Label>
+                      <Input id="name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="type">Tipo</Label>
+                      <Input id="type" value={editType} onChange={(e) => setEditType(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="category">Categoria</Label>
+                      <Input id="category" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label htmlFor="price">Preço</Label>
+                      <Input id="price" type="number" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+                  <div className="flex gap-3">
+                    <Button onClick={saveEdits} disabled={busy}>Salvar alterações</Button>
+                  </div>
+
+                  <div className="pt-2">
+                    <h3 className="font-medium text-sage-900 mb-2">Imagens</h3>
+                    <div className="flex items-center gap-3 mb-3">
+                      <Input id="file" type="file" accept="image/*" onChange={(e) => {
+                        const f = e.target.files?.[0]; if (f) uploadImageFile(f)
+                      }} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input placeholder="URL da imagem (https://...)" onKeyDown={(e) => {
+                        if (e.key === 'Enter') { const url = (e.target as HTMLInputElement).value.trim(); if (url) uploadImageUrl(url) }
+                      }} />
+                      <Button variant="outline" onClick={() => {
+                        const el = document.querySelector<HTMLInputElement>('input[placeholder="URL da imagem (https://...)"]');
+                        const url = el?.value.trim() || '';
+                        if (url) uploadImageUrl(url)
+                      }}>Adicionar por URL</Button>
+                    </div>
+                    {images.length > 0 && (
+                      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {images.map((im) => (
+                          <div key={im.id} className="relative border rounded-md overflow-hidden">
+                            <div className="relative aspect-square">
+                              <Image src={normalizeUrl(im.url)} alt={im.filename} fill className="object-cover" />
+                            </div>
+                            <div className="p-2 flex justify-between items-center text-xs">
+                              <span className="truncate" title={im.filename}>{im.filename}</span>
+                              <Button size="sm" variant="destructive" onClick={() => removeImage(im.id)}>Remover</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
