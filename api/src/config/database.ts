@@ -91,6 +91,10 @@ export async function ensureDatabaseAndSchema(): Promise<void> {
     if (!pcols.has('seller_id')) {
       await conn.query(`ALTER TABLE products ADD COLUMN seller_id INT NULL AFTER price`);
     }
+    // Admin: approved flag
+    if (!pcols.has('approved')) {
+      await conn.query(`ALTER TABLE products ADD COLUMN approved TINYINT(1) NOT NULL DEFAULT 0 AFTER seller_id`);
+    }
     // Índices para filtros e joins
     type Idx2 = RowDataPacket & { index_name: string };
     const [idxSeller] = await conn.query<Idx2[]>(
@@ -148,6 +152,11 @@ export async function ensureDatabaseAndSchema(): Promise<void> {
       await conn.query(`ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NULL`);
     }
 
+    // Admin: banned flag
+    if (!cols.has('banned')) {
+      await conn.query(`ALTER TABLE users ADD COLUMN banned TINYINT(1) NOT NULL DEFAULT 0`);
+    }
+
     // Garante tipo de role como ENUM
     const roleCol = cols.get('role');
     if (!roleCol || !roleCol.COLUMN_TYPE.toLowerCase().startsWith('enum(')) {
@@ -181,7 +190,7 @@ export async function ensureDatabaseAndSchema(): Promise<void> {
     const count = Array.isArray(rows) && (rows[0] as CountRow)?.count ? Number((rows[0] as CountRow).count) : 0;
     if (count === 0) {
       await conn.query(
-        'INSERT INTO products (name, type, price) VALUES (?, ?, ?), (?, ?, ?)',
+        'INSERT INTO products (name, type, price, approved) VALUES (?, ?, ?, 1), (?, ?, ?, 1)',
         ['Plugin Analytics', 'addon', 19.9, 'Tema Dark Pro', 'theme', 5.5]
       );
     }

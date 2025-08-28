@@ -22,7 +22,12 @@
 - [x] Vendedores respondem avaliações `POST /api/reviews/{id}/reply`
 
 ### 🛡️ Administração
-- [ ] Rotas protegidas para admin (banir usuário, aprovar produto)
+- [x] Rotas protegidas para admin (banir usuário, aprovar produto)
+  - Header de teste: `x-role: admin`
+  - `POST /api/admin/users/:id/ban`
+  - `POST /api/admin/users/:id/unban`
+  - `POST /api/admin/products/:id/approve`
+  - `POST /api/admin/products/:id/revoke`
 - [ ] Dashboard de métricas
 
 ### 🔔 Notificações
