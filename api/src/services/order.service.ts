@@ -61,4 +61,8 @@ export const orderService = {
     order.status = status
     return order
   },
+
+  async listAll(): Promise<Order[]> {
+    return [...orders]
+  },
 }

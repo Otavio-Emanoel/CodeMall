@@ -23,12 +23,13 @@
 
 ### 🛡️ Administração
 - [x] Rotas protegidas para admin (banir usuário, aprovar produto)
-  - Header de teste: `x-role: admin`
+  - Requer Authorization: Bearer <token admin>
   - `POST /api/admin/users/:id/ban`
   - `POST /api/admin/users/:id/unban`
   - `POST /api/admin/products/:id/approve`
   - `POST /api/admin/products/:id/revoke`
-- [ ] Dashboard de métricas
+- [x] Dashboard de métricas
+  - `GET /api/metrics/dashboard` (Authorization: Bearer <token admin>)
 
 ### 🔔 Notificações
 - [ ] Vendedores: nova venda, avaliação
