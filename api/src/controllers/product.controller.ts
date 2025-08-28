@@ -4,10 +4,14 @@ import { productService } from '../services/product.service';
 export class ProductController {
   async list(req: Request, res: Response) {
     try {
-      const { q, type, page, pageSize } = req.query;
+      const { q, type, category, minPrice, maxPrice, sellerId, page, pageSize } = req.query;
       const result = await productService.list({
         q: typeof q === 'string' ? q : undefined,
         type: typeof type === 'string' ? type : undefined,
+        category: typeof category === 'string' ? category : undefined,
+        minPrice: typeof minPrice === 'string' ? Number(minPrice) : undefined,
+        maxPrice: typeof maxPrice === 'string' ? Number(maxPrice) : undefined,
+        sellerId: typeof sellerId === 'string' ? Number(sellerId) : undefined,
         page: typeof page === 'string' ? parseInt(page, 10) : undefined,
         pageSize: typeof pageSize === 'string' ? parseInt(pageSize, 10) : undefined,
       });

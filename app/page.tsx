@@ -1,14 +1,15 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
-import { Heart, Star, ShoppingCart, Eye, TrendingUp, Award, Users } from "lucide-react"
+import { Heart, Star, ShoppingCart, Eye, TrendingUp, Award, Users, LogIn, LogOut, User as UserIcon, Store } from "lucide-react"
 
 interface CartItem {
   id: string
@@ -19,7 +20,37 @@ interface CartItem {
   image: string
 }
 
+function decodeJwt(token: string): any | null {
+  try {
+    const base64Url = token.split(".")[1]
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
+    const jsonPayload = decodeURIComponent(atob(base64).split("").map(c => '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(""))
+    return JSON.parse(jsonPayload)
+  } catch { return null }
+}
+
 export default function Dashboard() {
+  const router = useRouter()
+
+  const [auth, setAuth] = useState<{ id: number | null, role: 'buyer'|'seller'|'admin'|null, email?: string } | null>(null)
+  useEffect(() => {
+    const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!t) { setAuth(null); return }
+    const payload = decodeJwt(t) as { sub?: number|string; role?: 'buyer'|'seller'|'admin'; email?: string } | null
+    if (payload && (payload.sub != null)) {
+      setAuth({ id: Number(payload.sub), role: (payload.role ?? null) as any, email: payload.email })
+    } else {
+      setAuth(null)
+    }
+  }, [])
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('token')
+    setAuth(null)
+    toast({ title: 'Sessão encerrada' })
+    router.push('/auth')
+  }, [router])
+
   const [cartItems, setCartItems] = useState<CartItem[]>([
     {
       id: "1",
@@ -121,7 +152,10 @@ export default function Dashboard() {
       <Sidebar />
 
       <main className="flex-1 px-8 py-8">
-        <Header title="Hi, Dollar! 👋" subtitle="Welcome back to your dashboard" />
+        <Header
+          title={auth ? `Bem-vindo!` : 'Bem-vindo ao CodeMall'}
+          subtitle={auth ? 'Explore suas métricas e produtos' : 'Entre ou cadastre-se para aproveitar promoções e comprar/vender'}
+        />
 
         {/* Stats Cards */}
         <div className="mb-8 grid grid-cols-4 gap-6">

@@ -1,17 +1,53 @@
 "use client"
 
-import { Bell, Search } from "lucide-react"
+import { useEffect, useState, useCallback } from "react"
+import { Bell, Search, Store } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useRouter } from "next/navigation"
 
 interface HeaderProps {
   title: string
   subtitle?: string
 }
 
+function decodeJwt(token: string): any | null {
+  try {
+    const base64Url = token.split(".")[1]
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/")
+    const jsonPayload = decodeURIComponent(atob(base64).split("").map(c => '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(""))
+    return JSON.parse(jsonPayload)
+  } catch { return null }
+}
+
 export function Header({ title, subtitle }: HeaderProps) {
+  const router = useRouter()
+  const [auth, setAuth] = useState<{ id: number; role: 'buyer' | 'seller' | 'admin'; email?: string } | null>(null)
+
+  useEffect(() => {
+    const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!t) { setAuth(null); return }
+    const payload = decodeJwt(t) as { sub?: number | string; role?: 'buyer' | 'seller' | 'admin'; email?: string } | null
+    if (payload && payload.sub != null) {
+      setAuth({ id: Number(payload.sub), role: (payload.role ?? 'buyer') as any, email: payload.email })
+    } else {
+      setAuth(null)
+    }
+  }, [])
+
+  const goProfile = useCallback(() => {
+    if (auth) router.push('/profile')
+    else router.push('/auth')
+  }, [auth, router])
+
+  const goStore = useCallback(() => {
+    if (auth && (auth.role === 'seller' || auth.role === 'admin')) {
+      router.push(`/seller/${auth.id}`)
+    }
+  }, [auth, router])
+
   return (
     <header className="mb-8 flex items-center justify-between animate-fade-in">
       <div className="space-y-1">
@@ -28,19 +64,35 @@ export function Header({ title, subtitle }: HeaderProps) {
             placeholder="Search products, brands, categories..."
           />
         </div>
-        <div className="relative">
-          <Button size="icon" variant="ghost" className="hover:bg-sage-100">
-            <Bell className="h-5 w-5" />
+        {auth ? (
+          <div className="relative">
+            <Button size="icon" variant="ghost" className="hover:bg-sage-100" aria-label="Notificações">
+              <Bell className="h-5 w-5" />
+            </Button>
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 p-0 text-xs">3</Badge>
+          </div>
+        ) : null}
+        {auth && (auth.role === 'seller' || auth.role === 'admin') && (
+          <Button size="icon" variant="ghost" className="hover:bg-sage-100" onClick={goStore} aria-label="Minha loja">
+            <Store className="h-5 w-5" />
           </Button>
-          <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 p-0 text-xs">3</Badge>
-        </div>
-        <Avatar className="w-12 h-12 ring-2 ring-sage-200 hover:ring-sage-400 transition-all cursor-pointer">
-          <AvatarImage
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/dd.jpg-482Kz4Ro7YXPgsZnttDFsQEmrWQnhG.jpeg"
-            alt="User avatar"
-          />
-          <AvatarFallback className="bg-sage-100 text-sage-700">NA</AvatarFallback>
-        </Avatar>
+        )}
+        {auth ? (
+          <Avatar
+            className="w-12 h-12 ring-2 ring-sage-200 hover:ring-sage-400 transition-all cursor-pointer"
+            onClick={goProfile}
+          >
+            <AvatarImage
+              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/dd.jpg-482Kz4Ro7YXPgsZnttDFsQEmrWQnhG.jpeg"
+              alt="User avatar"
+            />
+            <AvatarFallback className="bg-sage-100 text-sage-700">NA</AvatarFallback>
+          </Avatar>
+        ) : (
+          <Button onClick={() => router.push('/auth')} className="rounded-full px-5">
+            Entrar / Cadastrar
+          </Button>
+        )}
       </div>
     </header>
   )

@@ -4,9 +4,9 @@
 
 ### Telas que faltam implementar
 - [x] Página de cadastro/login (autenticação)
-- [ ] Página de recuperação de senha
-- [ ] Página de perfil do vendedor (produtos, avaliações, vendas)
-- [ ] Página de detalhes do pedido (status, rastreio, histórico)
+- [x] Página de recuperação de senha
+- [x] Página de perfil do vendedor (produtos, avaliações, vendas)
+- [x] Página de detalhes do pedido (status, rastreio, histórico)
 - [ ] Página de favoritos (produtos/sellers)
 - [ ] Página de notificações (listagem, marcar como lida)
 - [ ] Página de administração (dashboard, banir/autorizar usuários/produtos)
