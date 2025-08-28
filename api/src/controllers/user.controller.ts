@@ -30,10 +30,10 @@ export class UserController {
     const isSelf = String(auth?.sub) === String(id);
     if (!isAdmin && !isSelf) return res.status(403).json({ error: 'Forbidden' });
 
-    const { name, email } = req.body || {};
-    if (!name && !email) return res.status(400).json({ error: 'Nothing to update' });
+    const { name, email, avatar } = req.body || {};
+    if (!name && !email && typeof avatar === 'undefined') return res.status(400).json({ error: 'Nothing to update' });
     try {
-      const updated = await userService.update(id, { name, email });
+      const updated = await userService.update(id, { name, email, avatar });
       res.json(updated);
     } catch (e: any) {
       const msg = String(e?.message || 'Update failed');
@@ -62,6 +62,36 @@ export class UserController {
       const msg = String(e?.message || 'Password update failed');
       const status = /invalid|not found/i.test(msg) ? 400 : 500;
       res.status(status).json({ error: msg });
+    }
+  }
+
+  async updateAvatar(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+    // @ts-ignore
+    const auth = (req as any).user as { sub: number | string; role: string } | undefined;
+    const isAdmin = auth?.role === 'admin';
+    const isSelf = String(auth?.sub) === String(id);
+    if (!isAdmin && !isSelf) return res.status(403).json({ error: 'Forbidden' });
+
+    // Arquivo via multer ou URL direta no body
+    const file: any = (req as any).file;
+    const incomingUrl: string | undefined = (req.body && (req.body.url as string)) || undefined;
+
+    let url: string | undefined;
+    if (file && typeof file.filename === 'string') {
+      url = `/uploads/${file.filename}`;
+    } else if (incomingUrl && typeof incomingUrl === 'string') {
+      url = incomingUrl;
+    }
+
+    if (!url) return res.status(400).json({ error: 'Missing file or url' });
+
+    try {
+      const updated = await userService.update(id, { avatar: url });
+      res.json(updated);
+    } catch (e: any) {
+      res.status(400).json({ error: e?.message || 'Failed to update avatar' });
     }
   }
 }

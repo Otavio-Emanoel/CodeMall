@@ -10,7 +10,7 @@ export const userService = {
     const { password_hash, ...pub } = u as any;
     return pub;
   },
-  async update(id: number, data: { name?: string; email?: string }) {
+  async update(id: number, data: { name?: string; email?: string; avatar?: string | null }) {
     const updated = await userRepository.update(id, data);
     const { password_hash, ...pub } = updated as any;
     return pub;

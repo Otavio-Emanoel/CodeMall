@@ -172,6 +172,11 @@ export async function ensureDatabaseAndSchema(): Promise<void> {
       await conn.query(`ALTER TABLE users ADD COLUMN banned TINYINT(1) NOT NULL DEFAULT 0`);
     }
 
+    // Avatar do usuário (URL)
+    if (!cols.has('avatar')) {
+      await conn.query(`ALTER TABLE users ADD COLUMN avatar VARCHAR(512) NULL`);
+    }
+
     // Garante tipo de role como ENUM
     const roleCol = cols.get('role');
     if (!roleCol || !roleCol.COLUMN_TYPE.toLowerCase().startsWith('enum(')) {

@@ -25,15 +25,52 @@ function decodeJwt(token: string): any | null {
 export function Header({ title, subtitle }: HeaderProps) {
   const router = useRouter()
   const [auth, setAuth] = useState<{ id: number; role: 'buyer' | 'seller' | 'admin'; email?: string } | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    if (!t) { setAuth(null); return }
-    const payload = decodeJwt(t) as { sub?: number | string; role?: 'buyer' | 'seller' | 'admin'; email?: string } | null
-    if (payload && payload.sub != null) {
-      setAuth({ id: Number(payload.sub), role: (payload.role ?? 'buyer') as any, email: payload.email })
-    } else {
-      setAuth(null)
+    async function loadAuthAndAvatar() {
+      const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      if (!t) { setAuth(null); setAvatarUrl(null); return }
+      const payload = decodeJwt(t) as { sub?: number | string; role?: 'buyer' | 'seller' | 'admin'; email?: string } | null
+      if (payload && payload.sub != null) {
+        const id = Number(payload.sub)
+        setAuth({ id, role: (payload.role ?? 'buyer') as any, email: payload.email })
+
+        // Tenta carregar avatar do backend
+        try {
+          const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'
+          const res = await fetch(`${base}/api/users/${id}`, { headers: { Authorization: `Bearer ${t}` } })
+          if (res.ok) {
+            const raw = await res.json()
+            const user = (raw && (raw.data ?? raw.user)) || raw || {}
+            if (user.avatar) {
+              setAvatarUrl(user.avatar)
+              return
+            }
+          }
+        } catch {}
+
+        // Fallback: avatar salvo localmente
+        const extraRaw = localStorage.getItem(`profile-extra:${id}`)
+        try {
+          const extra = extraRaw ? JSON.parse(extraRaw) : null
+          setAvatarUrl(extra?.avatar || null)
+        } catch { setAvatarUrl(null) }
+      } else {
+        setAuth(null)
+        setAvatarUrl(null)
+      }
+    }
+
+    loadAuthAndAvatar()
+    const onAvatarUpdated = () => loadAuthAndAvatar()
+    if (typeof window !== 'undefined') {
+      window.addEventListener('profile-avatar-updated', onAvatarUpdated)
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('profile-avatar-updated', onAvatarUpdated)
+      }
     }
   }, [])
 
@@ -83,7 +120,7 @@ export function Header({ title, subtitle }: HeaderProps) {
             onClick={goProfile}
           >
             <AvatarImage
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/dd.jpg-482Kz4Ro7YXPgsZnttDFsQEmrWQnhG.jpeg"
+              src={avatarUrl || "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/dd.jpg-482Kz4Ro7YXPgsZnttDFsQEmrWQnhG.jpeg"}
               alt="User avatar"
             />
             <AvatarFallback className="bg-sage-100 text-sage-700">NA</AvatarFallback>
