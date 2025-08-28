@@ -50,8 +50,8 @@ export function Sidebar() {
 		<aside className="w-64 border-r border-sage-200 bg-gradient-to-b from-cream-50 to-sage-50 px-6 py-8">
 			<div className="mb-8">
 				<Image
-					src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/fs-OQzXWiKsdo0mSCzNZyZmZHXxrCi0Bp.png"
-					alt="Fashion Store"
+					src="/icon.png"
+					alt="CodeMall"
 					width={150}
 					height={40}
 					className="h-10 w-auto"

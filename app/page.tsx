@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -9,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/use-toast"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
-import { Heart, Star, ShoppingCart, Eye, TrendingUp, Award, Users, LogIn, LogOut, User as UserIcon, Store } from "lucide-react"
+import { ShoppingCart } from "lucide-react"
 
 interface CartItem {
   id: string
@@ -33,6 +34,10 @@ export default function Dashboard() {
   const router = useRouter()
 
   const [auth, setAuth] = useState<{ id: number | null, role: 'buyer'|'seller'|'admin'|null, email?: string } | null>(null)
+  const [products, setProducts] = useState<any[]>([])
+  const [featured, setFeatured] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
   useEffect(() => {
     const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (!t) { setAuth(null); return }
@@ -44,107 +49,45 @@ export default function Dashboard() {
     }
   }, [])
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem('token')
-    setAuth(null)
-    toast({ title: 'Sessão encerrada' })
-    router.push('/auth')
-  }, [router])
-
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: "1",
-      name: "Monocle Canvas Tote Bag",
-      price: 213.99,
-      size: "L",
-      quantity: 1,
-      image:
-        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/The%20Best%20Media%20Tote%20Bags,%20Ranked.jpg-z2O2nGPSTrjey8xEM1cc5aTI2ggjXE.jpeg",
-    },
-    {
-      id: "2",
-      name: "Square One District Tote",
-      price: 189.99,
-      size: "M",
-      quantity: 1,
-      image:
-        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Index,%20Vanderbrand.jpg-Fv7HHkBaQgZe7HG3hbz5aojPoFRIuo.jpeg",
-    },
-  ])
-
-  const [wishlist, setWishlist] = useState<string[]>([])
-
-  const popularItems = [
-    {
-      id: "1",
-      name: "Monocle Canvas Tote Bag",
-      price: 213.99,
-      originalPrice: 299.99,
-      rating: 4.9,
-      reviews: 234,
-      image:
-        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/The%20Best%20Media%20Tote%20Bags,%20Ranked.jpg-z2O2nGPSTrjey8xEM1cc5aTI2ggjXE.jpeg",
-      badge: "Bestseller",
-      discount: 29,
-    },
-    {
-      id: "2",
-      name: "Square One District Tote",
-      price: 189.99,
-      originalPrice: 249.99,
-      rating: 4.8,
-      reviews: 189,
-      image:
-        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Index,%20Vanderbrand.jpg-Fv7HHkBaQgZe7HG3hbz5aojPoFRIuo.jpeg",
-      badge: "New",
-      discount: 24,
-    },
-    {
-      id: "3",
-      name: "Sporty & Rich Canvas Tote",
-      price: 221.99,
-      originalPrice: 289.99,
-      rating: 4.9,
-      reviews: 156,
-      image:
-        "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/download%20(2).jpg-zbeT25jMphcVf4DmpAlTVsGALg88Zn.jpeg",
-      badge: "Limited",
-      discount: 23,
-    },
-  ]
-
-  const stats = [
-    { label: "Total Orders", value: "1,234", icon: ShoppingCart, change: "+12%" },
-    { label: "Happy Customers", value: "5,678", icon: Users, change: "+8%" },
-    { label: "Products Sold", value: "9,876", icon: Award, change: "+15%" },
-    { label: "Revenue", value: "$45,678", icon: TrendingUp, change: "+23%" },
-  ]
-
-  const toggleWishlist = useCallback(
-    (itemId: string) => {
-      setWishlist((prev) => (prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]))
-      toast({
-        title: wishlist.includes(itemId) ? "Removed from wishlist" : "Added to wishlist",
-        description: wishlist.includes(itemId) ? "Item removed from your wishlist" : "Item added to your wishlist",
-      })
-    },
-    [wishlist],
-  )
-
-  const addToCart = useCallback((item: (typeof popularItems)[0]) => {
-    setCartItems((prevItems) => {
-      const existingItem = prevItems.find((cartItem) => cartItem.id === item.id)
-      if (existingItem) {
-        return prevItems.map((cartItem) =>
-          cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem,
+  useEffect(() => {
+    async function fetchProducts() {
+      setLoading(true)
+      try {
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'
+        const res = await fetch(`${base}/api/products`)
+        const result = await res.json()
+        const list = Array.isArray(result) ? result : (result.data || [])
+        setProducts(list)
+        // calcular destaque por número de avaliações
+        const subset = list.slice(0, 24)
+        const summaries = await Promise.all(
+          subset.map(async (p: any) => {
+            try {
+              const r = await fetch(`${base}/api/reviews/summary?targetId=${p.id}`)
+              const s = await r.json()
+              const count = Number(s?.count ?? 0)
+              return { id: p.id, count }
+            } catch { return { id: p.id, count: 0 } }
+          })
         )
+        const counts: Record<number, number> = {}
+        for (const s of summaries) counts[s.id] = s.count
+        const withCount = list.map((p: any) => ({ ...p, _count: counts[p.id] || 0 }))
+        const sorted = withCount.sort((a: any, b: any) => b._count - a._count)
+        const top = sorted.filter((p: any) => p._count > 0).slice(0, 6)
+        setFeatured(top.length ? top : list.slice(0, 6))
+      } catch {
+        setProducts([])
+        setFeatured([])
+      } finally {
+        setLoading(false)
       }
-      toast({
-        title: "Added to cart! 🛍️",
-        description: `${item.name} has been added to your cart.`,
-      })
-      return [...prevItems, { ...item, quantity: 1, size: "M" }]
-    })
+    }
+    fetchProducts()
+  }, [])
+
+  const addToCart = useCallback((item: any) => {
+    toast({ title: "Added to cart! 🛍️", description: `${item.name} has been added to your cart.` })
   }, [])
 
   return (
@@ -157,29 +100,12 @@ export default function Dashboard() {
           subtitle={auth ? 'Explore suas métricas e produtos' : 'Entre ou cadastre-se para aproveitar promoções e comprar/vender'}
         />
 
-        {/* Stats Cards */}
-        <div className="mb-8 grid grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
-            <Card
-              key={stat.label}
-              className="border-0 bg-white/80 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 animate-fade-in"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-sage-600">{stat.label}</p>
-                    <p className="text-2xl font-bold text-sage-800">{stat.value}</p>
-                    <p className="text-sm text-green-600 font-medium">{stat.change}</p>
-                  </div>
-                  <div className="p-3 bg-sage-100 rounded-full">
-                    <stat.icon className="h-6 w-6 text-sage-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* Stats Cards (apenas seller/admin) */}
+        {(auth && (auth.role === 'seller' || auth.role === 'admin')) && (
+          <div className="mb-8 grid grid-cols-4 gap-6">
+            {/* métricas reais podem ser carregadas aqui */}
+          </div>
+        )}
 
         {/* Hero Cards */}
         <div className="mb-12 grid grid-cols-2 gap-8">
@@ -225,99 +151,60 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Popular Collection */}
+        {/* Produtos em destaque (mais avaliados) */}
         <div className="mb-8 flex items-center justify-between">
-          <h3 className="text-3xl font-bold text-sage-800">Popular Collection</h3>
-          <Button variant="link" className="text-sage-600 hover:text-sage-800 text-lg">
-            View All Products →
-          </Button>
+          <h3 className="text-3xl font-bold text-sage-800">Produtos em destaque</h3>
+          <Link href="/products" className="text-sage-600 hover:text-sage-800 text-lg">
+            Ver todos os produtos →
+          </Link>
         </div>
 
-        <div className="grid grid-cols-3 gap-8">
-          {popularItems.map((item, index) => (
-            <Card
-              key={item.id}
-              className="group border-0 bg-white/90 backdrop-blur-sm rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 animate-fade-in"
-              style={{ animationDelay: `${index * 150}ms` }}
-            >
-              <CardHeader className="p-0 relative">
-                <div className="absolute top-4 left-4 z-20">
-                  <Badge
-                    className={`${
-                      item.badge === "Bestseller"
-                        ? "bg-green-500"
-                        : item.badge === "New"
-                          ? "bg-blue-500"
-                          : "bg-purple-500"
-                    } text-white`}
-                  >
-                    {item.badge}
-                  </Badge>
-                </div>
-                <div className="absolute top-4 right-4 z-20">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="bg-white/80 backdrop-blur-sm hover:bg-white rounded-full shadow-lg"
-                    onClick={() => toggleWishlist(item.id)}
-                  >
-                    <Heart
-                      className={`h-5 w-5 ${
-                        wishlist.includes(item.id) ? "fill-red-500 text-red-500" : "text-sage-600"
-                      }`}
-                    />
-                  </Button>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 z-10" />
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 opacity-0 transform translate-y-4 transition-all group-hover:opacity-100 group-hover:translate-y-0">
-                  <Button size="sm" className="bg-white text-sage-800 hover:bg-sage-100 rounded-full shadow-lg">
-                    <Eye className="h-4 w-4 mr-2" />
-                    Quick View
-                  </Button>
-                </div>
-                <Image
-                  src={item.image || "/placeholder.svg"}
-                  alt={item.name}
-                  width={400}
-                  height={400}
-                  className="h-[320px] w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-              </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                <div>
-                  <h4 className="text-xl font-bold mb-2 text-sage-800 line-clamp-1">{item.name}</h4>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-4 h-4 ${i < Math.floor(item.rating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
-                        />
-                      ))}
+        {loading ? (
+          <div className="text-sage-600">Carregando produtos...</div>
+        ) : (
+          <div className="grid grid-cols-3 gap-8">
+            {featured.map((item: any, index: number) => (
+              <Card
+                key={item.id}
+                className="group border-0 bg-white/90 backdrop-blur-sm rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 animate-fade-in"
+                style={{ animationDelay: `${index * 150}ms` }}
+              >
+                <CardHeader className="p-0 relative">
+                  <div className="absolute top-4 left-4 z-20">
+                    {item.category && <Badge className="bg-green-500 text-white">{item.category}</Badge>}
+                    {item._count > 0 && (
+                      <Badge className="ml-2 bg-yellow-500 text-white">{item._count} avaliações</Badge>
+                    )}
+                  </div>
+                  <Image
+                    src={item.image_url || "/placeholder.svg"}
+                    alt={item.name}
+                    width={400}
+                    height={400}
+                    className="h-[320px] w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div>
+                    <h4 className="text-xl font-bold mb-2 text-sage-800 line-clamp-1">{item.name}</h4>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <p className="text-2xl font-bold text-sage-800">R$ {item.price}</p>
                     </div>
-                    <span className="text-sm text-sage-600">({item.reviews} reviews)</span>
+                    <Button
+                      className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                      onClick={() => addToCart(item)}
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Adicionar ao carrinho
+                    </Button>
                   </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <p className="text-2xl font-bold text-sage-800">$ {item.price}</p>
-                    <p className="text-lg text-gray-400 line-through">$ {item.originalPrice}</p>
-                    <Badge variant="destructive" className="text-xs">
-                      -{item.discount}%
-                    </Badge>
-                  </div>
-                  <Button
-                    className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                    onClick={() => addToCart(item)}
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Add to Cart
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   )
