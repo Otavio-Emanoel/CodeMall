@@ -182,6 +182,18 @@ export async function ensureDatabaseAndSchema(): Promise<void> {
       await conn.query(`ALTER TABLE users ADD UNIQUE uk_users_email (email)`);
     }
 
+    // Tabela de favoritos
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS favorites (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        buyer_id INT NOT NULL,
+        target_type ENUM('product','seller') NOT NULL,
+        target_id INT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_favorites_buyer_target (buyer_id, target_type, target_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
     // 4) Seed básico de products se estiver vazio
     interface CountRow extends RowDataPacket { count: number }
     const [rows] = await conn.query<CountRow[]>(

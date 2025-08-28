@@ -36,7 +36,10 @@
 - [x] Compradores: pedido enviado, resposta de vendedor
 
 ### ❤️ Favoritos
-- [ ] Compradores podem favoritar produtos/vendedores
+- [x] Favoritar / desfavoritar / listar
+  - `POST /api/favorites` { buyerId, targetType: 'product'|'seller', targetId }
+  - `DELETE /api/favorites` { buyerId, targetType: 'product'|'seller', targetId }
+  - `GET /api/favorites?buyerId=1[&targetType=product|seller]`
 
 ### 🔑 Recuperação de Senha
 - [ ] Solicitar e redefinir senha via email
