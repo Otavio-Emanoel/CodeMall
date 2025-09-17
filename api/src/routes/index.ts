@@ -9,6 +9,7 @@ import { authRoutes } from './auth.routes';
 import { metricsRoutes } from './metrics.routes';
 import { notificationRoutes } from './notification.routes';
 import { favoriteRoutes } from './favorite.routes';
+import { cartRoutes } from './cart.routes';
 // futuras: authRoutes, orderRoutes, paymentRoutes
 
 export const router = Router();
@@ -27,3 +28,4 @@ router.use('/auth', authRoutes);
 router.use('/metrics', metricsRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/favorites', favoriteRoutes);
+router.use('/cart', cartRoutes);

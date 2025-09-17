@@ -12,7 +12,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Star, Package, ShoppingCart, User } from 'lucide-react';
+import { Star, Package, ShoppingCart, User, Plus, ArrowLeft } from 'lucide-react';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
 
@@ -42,10 +45,38 @@ export default function SellerProfilePage() {
   const [loading, setLoading] = useState(true);
 
   const [seller, setSeller] = useState<UserRow | null>(null);
+  const [authUser, setAuthUser] = useState<UserRow | null>(null);
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [sales, setSales] = useState<Order[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [productImages, setProductImages] = useState<Record<number, string>>({});
+
+  // Estado do modal de novo produto
+  const [openAdd, setOpenAdd] = useState(false);
+  const [pName, setPName] = useState('');
+  const [pType, setPType] = useState('');
+  const [pCategory, setPCategory] = useState('');
+  const [pPrice, setPPrice] = useState('');
+  const [pImageUrl, setPImageUrl] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  // Carrega usuário autenticado (se houver)
+  useEffect(() => {
+    let mounted = true;
+    async function loadMe() {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        if (!token) return;
+        const res = await fetch(`${API_URL}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        if (!res.ok) return; // silencioso
+        if (mounted) setAuthUser(data?.user || null);
+      } catch {}
+    }
+    loadMe();
+    return () => { mounted = false };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -56,7 +87,7 @@ export default function SellerProfilePage() {
         const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
-        // Seller info (precisa ser o próprio usuário ou admin)
+        // Seller info
         // @ts-ignore
         const uRes = await fetch(`${API_URL}/api/users/${sellerId}`, { headers: authHeaders });
         const uData = await uRes.json();
@@ -142,15 +173,119 @@ export default function SellerProfilePage() {
     return { totalProducts, totalSales, avgRating: Math.round(avgRating * 10) / 10 };
   }, [products, sales, reviews]);
 
+  const isOwnerOrAdmin = !!(authUser && (authUser.role === 'admin' || (authUser.role === 'seller' && Number(authUser.id) === sellerId)));
+
+  async function handleCreateProduct(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateError('');
+    if (!pName.trim() || !pType.trim() || !pPrice.trim()) {
+      setCreateError('Nome, Tipo e Preço são obrigatórios');
+      return;
+    }
+    const priceNum = parseFloat(pPrice.replace(',', '.'));
+    if (Number.isNaN(priceNum)) {
+      setCreateError('Preço inválido');
+      return;
+    }
+    try {
+      setCreating(true);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      if (!token) throw new Error('Usuário não autenticado');
+      const body = { name: pName.trim(), type: pType.trim(), category: pCategory.trim() || null, price: priceNum };
+      const res = await fetch(`${API_URL}/api/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Falha ao criar produto');
+      const created: ProductRow = data;
+
+      // opcional imagem via URL
+      if (pImageUrl.trim()) {
+        try {
+          const imgRes = await fetch(`${API_URL}/api/products/${created.id}/images`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ filename: pImageUrl.split('/').pop() || 'image', url: pImageUrl.trim() })
+          });
+          await imgRes.json().catch(() => ({}));
+        } catch {}
+      }
+
+      setProducts(prev => [created, ...prev]);
+      toast({ title: 'Produto criado', description: 'Seu produto foi adicionado com sucesso.' });
+      setOpenAdd(false);
+      setPName('');
+      setPType('');
+      setPCategory('');
+      setPPrice('');
+      setPImageUrl('');
+    } catch (e: any) {
+      setCreateError(e?.message || 'Erro ao criar produto');
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-cream-50 via-sage-50 to-cream-100">
       <main className="flex-1 px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-sage-800 flex items-center gap-3">
-            <User className="h-8 w-8 text-sage-700" />
-            {seller?.name || 'Vendedor'}
-          </h1>
-          <p className="text-sage-600">Perfil do vendedor • ID #{sellerId}</p>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-sage-800 flex items-center gap-3">
+              <User className="h-8 w-8 text-sage-700" />
+              {seller?.name || 'Vendedor'}
+            </h1>
+            <p className="text-sage-600">Perfil do vendedor • ID #{sellerId}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button asChild variant="outline" className="flex items-center gap-2">
+              <Link href="/"><ArrowLeft className="h-4 w-4" /> Voltar</Link>
+            </Button>
+            {isOwnerOrAdmin && (
+              <Dialog open={openAdd} onOpenChange={setOpenAdd}>
+                <DialogTrigger asChild>
+                  <Button variant="default" className="flex items-center gap-2"><Plus className="h-4 w-4" /> Novo produto</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Novo Produto</DialogTitle>
+                    <DialogDescription>Preencha os dados para adicionar um produto.</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateProduct} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="pName">Nome *</Label>
+                        <Input id="pName" value={pName} onChange={e => setPName(e.target.value)} placeholder="Ex: Gerenciamento de Estoque" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="pType">Tipo *</Label>
+                        <Input id="pType" value={pType} onChange={e => setPType(e.target.value)} placeholder="Ex: SaaS" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="pCategory">Categoria</Label>
+                        <Input id="pCategory" value={pCategory} onChange={e => setPCategory(e.target.value)} placeholder="Ex: Aplicativo Web" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="pPrice">Preço (R$) *</Label>
+                        <Input id="pPrice" type="number" step="0.01" value={pPrice} onChange={e => setPPrice(e.target.value)} placeholder="0.00" />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label htmlFor="pImageUrl">URL da imagem (opcional)</Label>
+                        <Input id="pImageUrl" value={pImageUrl} onChange={e => setPImageUrl(e.target.value)} placeholder="https://..." />
+                      </div>
+                    </div>
+                    {createError && <p className="text-sm text-red-600">{createError}</p>}
+                    <DialogFooter className="flex gap-3">
+                      <Button type="button" variant="outline" onClick={() => setOpenAdd(false)}>Cancelar</Button>
+                      <Button type="submit" disabled={creating}>{creating ? 'Salvando...' : 'Salvar'}</Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </div>
 
         {/* Stats */}

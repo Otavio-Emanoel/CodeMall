@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/use-toast"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { ShoppingCart } from "lucide-react"
+import { useCart } from "@/hooks/use-cart"
 
 interface CartItem {
   id: string
@@ -32,11 +33,24 @@ function decodeJwt(token: string): any | null {
 
 export default function Dashboard() {
   const router = useRouter()
+  const cart = useCart()
 
   const [auth, setAuth] = useState<{ id: number | null, role: 'buyer'|'seller'|'admin'|null, email?: string } | null>(null)
   const [products, setProducts] = useState<any[]>([])
   const [featured, setFeatured] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  // Novo: imagens por produto e índice atual do carrossel
+  const [productImages, setProductImages] = useState<Record<number, string[]>>({})
+  const [imageIndexes, setImageIndexes] = useState<Record<number, number>>({})
+
+  // Normaliza URL vinda da API (ex: /uploads/abc) ou externa
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'
+  function normalizeUrl(u?: string) {
+    if (!u) return '/placeholder.svg'
+    if (u.startsWith('http')) return u
+    if (u.startsWith('/')) return `${API_URL}${u}`
+    return u
+  }
 
   useEffect(() => {
     const t = typeof window !== 'undefined' ? localStorage.getItem('token') : null
@@ -86,9 +100,58 @@ export default function Dashboard() {
     fetchProducts()
   }, [])
 
+  // Novo: carregar imagens dos produtos em destaque quando 'featured' muda
+  useEffect(() => {
+    async function loadImages() {
+      if (!featured.length) return
+      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'
+      const toLoad = featured.filter(p => !productImages[p.id])
+      if (toLoad.length === 0) return
+      try {
+        const results = await Promise.allSettled(
+          toLoad.map(async (p) => {
+            const r = await fetch(`${base}/api/products/${p.id}/images`)
+            const data = await r.json().catch(() => ({}))
+            const arr = Array.isArray(data?.data) ? data.data : []
+            const urls = arr.map((im: any) => normalizeUrl(im.url)).filter(Boolean)
+            return { id: p.id, urls }
+          })
+        )
+        const next: Record<number, string[]> = { ...productImages }
+        for (const r of results) {
+          if (r.status === 'fulfilled') {
+            next[r.value.id] = r.value.urls.length ? r.value.urls : next[r.value.id] || []
+          }
+        }
+        setProductImages(next)
+      } catch {}
+    }
+    loadImages()
+  }, [featured, productImages])
+
+  // Novo: intervalo para rotacionar imagem atual dos cards
+  useEffect(() => {
+    if (!featured.length) return
+    const interval = setInterval(() => {
+      setImageIndexes(prev => {
+        const next = { ...prev }
+        for (const p of featured) {
+          const imgs = productImages[p.id]
+            if (imgs && imgs.length > 1) {
+              next[p.id] = ((next[p.id] || 0) + 1) % imgs.length
+            }
+        }
+        return next
+      })
+    }, 3000) // a cada 3s
+    return () => clearInterval(interval)
+  }, [featured, productImages])
+
   const addToCart = useCallback((item: any) => {
-    toast({ title: "Added to cart! 🛍️", description: `${item.name} has been added to your cart.` })
-  }, [])
+    const firstImg = (productImages[item.id] && productImages[item.id][0]) || item.image_url || '/placeholder.svg'
+    cart.addItem({ productId: item.id, name: item.name, price: item.price, image: firstImg, sellerId: item.seller_id })
+    toast({ title: "Adicionado ao carrinho", description: `${item.name} foi adicionado.` })
+  }, [productImages, cart])
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-cream-50 via-sage-50 to-cream-100">
@@ -104,6 +167,9 @@ export default function Dashboard() {
         {(auth && (auth.role === 'seller' || auth.role === 'admin')) && (
           <div className="mb-8 grid grid-cols-4 gap-6">
             {/* métricas reais podem ser carregadas aqui */}
+            <Button asChild variant="outline" className="col-span-1" onClick={() => router.push('/cart')}>
+              <Link href="/cart">Ver Carrinho ({cart.totalItems})</Link>
+            </Button>
           </div>
         )}
 
@@ -163,46 +229,64 @@ export default function Dashboard() {
           <div className="text-sage-600">Carregando produtos...</div>
         ) : (
           <div className="grid grid-cols-3 gap-8">
-            {featured.map((item: any, index: number) => (
-              <Card
-                key={item.id}
-                className="group border-0 bg-white/90 backdrop-blur-sm rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 animate-fade-in"
-                style={{ animationDelay: `${index * 150}ms` }}
-              >
-                <CardHeader className="p-0 relative">
-                  <div className="absolute top-4 left-4 z-20">
-                    {item.category && <Badge className="bg-green-500 text-white">{item.category}</Badge>}
-                    {item._count > 0 && (
-                      <Badge className="ml-2 bg-yellow-500 text-white">{item._count} avaliações</Badge>
-                    )}
-                  </div>
-                  <Image
-                    src={item.image_url || "/placeholder.svg"}
-                    alt={item.name}
-                    width={400}
-                    height={400}
-                    className="h-[320px] w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  <div>
-                    <h4 className="text-xl font-bold mb-2 text-sage-800 line-clamp-1">{item.name}</h4>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <p className="text-2xl font-bold text-sage-800">R$ {item.price}</p>
+            {featured.map((item: any, index: number) => {
+              const imgs = productImages[item.id] && productImages[item.id].length ? productImages[item.id] : [item.image_url || '/placeholder.svg']
+              const activeIndex = imageIndexes[item.id] ? imageIndexes[item.id] % imgs.length : 0
+              return (
+                <Card
+                  key={item.id}
+                  className="group border-0 bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 animate-fade-in relative cursor-pointer focus:outline-none focus:ring-2 focus:ring-sage-500"
+                  style={{ animationDelay: `${index * 150}ms` }}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/product/${item.id}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/product/${item.id}`) } }}
+                >
+                  <CardHeader className="p-0 relative rounded-t-3xl overflow-hidden">
+                    <div className="absolute top-4 left-4 z-20 flex flex-wrap gap-2">
+                      {item.category && <Badge className="bg-green-500 text-white">{item.category}</Badge>}
+                      {item._count > 0 && (
+                        <Badge className="bg-yellow-500 text-white">{item._count} avaliações</Badge>
+                      )}
                     </div>
-                    <Button
-                      className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                      onClick={() => addToCart(item)}
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Adicionar ao carrinho
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="relative h-[320px] w-full">
+                      {imgs.slice(0,5).map((url: string, idx: number) => (
+                        <Image
+                          key={url + idx}
+                          src={url}
+                          alt={item.name}
+                          fill
+                          sizes="(max-width:768px) 100vw, 400px"
+                          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${idx === activeIndex ? 'opacity-100' : 'opacity-0'}`}
+                        />
+                      ))}
+                      {imgs.length > 1 && (
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
+                          {imgs.slice(0,5).map((_, i) => (
+                            <span key={i} className={`h-2 w-2 rounded-full ${i === activeIndex ? 'bg-white shadow' : 'bg-white/40'}`}></span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div>
+                      <h4 className="text-xl font-bold mb-2 text-sage-800 line-clamp-1">{item.name}</h4>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-2xl font-bold text-sage-800">R$ {item.price}</p>
+                      <Button
+                        className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-5 shadow-lg hover:shadow-xl transition-colors z-30"
+                        onClick={(e) => { e.stopPropagation(); addToCart(item) }}
+                      >
+                        <ShoppingCart className="h-4 w-4 mr-2" />
+                        Carrinho
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         )}
       </main>

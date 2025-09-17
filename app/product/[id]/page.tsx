@@ -9,6 +9,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useCart } from '@/hooks/use-cart'
+import { toast } from '@/components/ui/use-toast'
+import { ArrowLeft } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3333"
 
@@ -44,6 +47,8 @@ export default function ProductDetail() {
   const [editPrice, setEditPrice] = useState("")
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string>("")
+
+  const cart = useCart()
 
   useEffect(() => {
     let mounted = true
@@ -224,9 +229,22 @@ export default function ProductDetail() {
     }
   }
 
+  function handleAddToCart() {
+    if (!product) return
+    const firstImage = images[0]?.url ? normalizeUrl(images[0].url) : '/placeholder.svg'
+    cart.addItem({ productId: product.id, name: product.name, price: product.price, image: firstImage, sellerId: product.seller_id })
+    toast({ title: 'Adicionado ao carrinho', description: `${product.name} foi adicionado.` })
+  }
+
   return (
     <div className="min-h-[70vh] w-full px-6 py-8">
       <div className="max-w-6xl mx-auto">
+        <div className="mb-4">
+          <Button variant="ghost" onClick={() => window.location.href = '/'} className="flex items-center gap-2 px-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar
+          </Button>
+        </div>
+
         {loading ? (
           <p className="text-sage-600">Carregando produto...</p>
         ) : error ? (
@@ -273,7 +291,7 @@ export default function ProductDetail() {
                 >
                   Comprar agora
                 </Link>
-                <Button variant="outline" className="px-5 py-3">Adicionar ao carrinho</Button>
+                <Button variant="outline" className="px-5 py-3" onClick={handleAddToCart}>Adicionar ao carrinho</Button>
               </div>
 
               <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
