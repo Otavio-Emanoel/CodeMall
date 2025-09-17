@@ -10,12 +10,8 @@ import { cn } from "@/lib/utils"
 const navigation = [
 	{ name: "Dashboard", href: "/", icon: Home },
 	{ name: "Profile", href: "/profile", icon: User2 },
-	{ name: "Wishlist", href: "/wishlist", icon: Heart },
 	{ name: "Orders", href: "/orders", icon: Package },
-	{ name: "Settings", href: "/settings", icon: Settings },
-	{ name: "Messages", href: "/messages", icon: Mail },
 	{ name: "My Cart", href: "/cart", icon: ShoppingBag },
-	{ name: "Support", href: "/support", icon: User2 },
 ]
 
 function decodeJwt(token: string): any | null {

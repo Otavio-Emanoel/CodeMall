@@ -132,7 +132,7 @@ export default function Checkout() {
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || 'Falha ao criar pedido')
       toast({ title: 'Pedido realizado', description: `Pedido #${data.id} criado com sucesso.` })
-      router.push(`/orders/${data.id}`)
+      router.push(`/orders?new=${data.id}`)
     } catch (e: any) {
       toast({ title: 'Erro', description: e?.message || 'Falha ao finalizar pedido', variant: 'destructive' })
     } finally {

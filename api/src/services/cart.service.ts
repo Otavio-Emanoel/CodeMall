@@ -50,5 +50,22 @@ export const cartService = {
   async clear(userId: number) {
     carts[userId] = []
     return []
+  },
+
+  async setCart(userId: number, items: CartItem[]) {
+    carts[userId] = []
+    for (const it of items) {
+      if (typeof it.productId === 'number' && typeof it.price === 'number' && typeof it.quantity === 'number') {
+        carts[userId].push({
+          productId: it.productId,
+          name: String(it.name || ''),
+          price: it.price,
+          quantity: Math.max(1, it.quantity),
+          image: it.image || null,
+          sellerId: it.sellerId ?? null
+        })
+      }
+    }
+    return this.list(userId)
   }
 }

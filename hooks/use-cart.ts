@@ -82,32 +82,95 @@ export function useCart() {
     }
   }, [])
 
+  // detectar login depois de adicionar itens localmente: mesclar
+  useEffect(() => {
+    async function mergeAfterLogin() {
+      if (!userId) return
+      try {
+        const res = await fetch(`${API_URL}/api/cart?userId=${userId}`)
+        const remote = await res.json().catch(()=>({}))
+        const remoteItems: CartItem[] = Array.isArray(remote?.items) ? remote.items : []
+        // Se remoto vazio e local tem itens -> enviar local
+        if (remoteItems.length === 0 && items.length > 0) {
+          await fetch(`${API_URL}/api/cart/set`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ userId, items })
+          })
+          return
+        }
+        // Se remoto tem itens e local vazio -> salvar remoto local
+        if (remoteItems.length > 0 && items.length === 0) {
+          setItems(remoteItems); writeStorage(remoteItems); return
+        }
+        // Se ambos tem itens: manter o maior quantity por productId
+        if (remoteItems.length > 0 && items.length > 0) {
+          const map: Record<number, CartItem> = {}
+          for (const it of remoteItems) map[it.productId] = { ...it }
+          for (const it of items) {
+            if (!map[it.productId]) map[it.productId] = { ...it }
+            else map[it.productId].quantity = Math.max(map[it.productId].quantity, it.quantity)
+          }
+          const merged = Object.values(map)
+          await fetch(`${API_URL}/api/cart/set`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ userId, items: merged })
+          })
+          setItems(merged); writeStorage(merged)
+        }
+      } catch {}
+    }
+    mergeAfterLogin()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
+
   const save = useCallback((next: CartItem[]) => {
     setItems(next)
     writeStorage(next)
   }, [])
 
-  const addItem = useCallback(async (p: { productId: number; name: string; price: number; image?: string; sellerId?: number | null }) => {
+  const addItem = useCallback(async (p: { productId: number; name: string; price: number; image?: string; sellerId?: number | null; quantity?: number }) => {
+    const qty = Math.max(1, p.quantity || 1)
+    let updated: CartItem[] = []
     setItems(prevItems => {
       const existing = prevItems.find(i => i.productId === p.productId)
-      let next: CartItem[]
       if (existing) {
-        next = prevItems.map(i => i.productId === p.productId ? { ...i, quantity: i.quantity + 1 } : i)
+        updated = prevItems.map(i => i.productId === p.productId ? { ...i, quantity: i.quantity + qty } : i)
       } else {
-        next = [...prevItems, { productId: p.productId, name: p.name, price: p.price, image: p.image, quantity: 1, sellerId: p.sellerId ?? null }]
+        updated = [...prevItems, { productId: p.productId, name: p.name, price: Number(p.price), image: p.image, quantity: qty, sellerId: p.sellerId ?? null }]
       }
-      writeStorage(next)
-      return next
+      writeStorage(updated)
+      return updated
     })
     if (userId) {
       try {
-        await fetch(`${API_URL}/api/cart/add`, {
+        const payload = { userId, productId: p.productId, name: p.name, price: Number(p.price), quantity: qty, image: p.image, sellerId: p.sellerId }
+        console.debug('[cart] POST /api/cart/add payload', payload)
+        const res = await fetch(`${API_URL}/api/cart/add`, {
           method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, productId: p.productId, name: p.name, price: p.price, quantity: 1, image: p.image, sellerId: p.sellerId })
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload)
         })
-      } catch {}
+        const dj = await res.json().catch(()=>({}))
+        console.debug('[cart] /add response', res.status, dj)
+        if (res.ok && Array.isArray(dj.items)) {
+          setItems(dj.items)
+          writeStorage(dj.items)
+        } else {
+          console.warn('[cart] /add fallback -> /set')
+          await fetch(`${API_URL}/api/cart/set`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ userId, items: updated }) })
+        }
+      } catch (e) {
+        console.error('[cart] addItem error', e)
+        setTimeout(async () => {
+          try {
+            const r2 = await fetch(`${API_URL}/api/cart?userId=${userId}`)
+            const dj2 = await r2.json().catch(()=>({}))
+            if (Array.isArray(dj2.items)) { setItems(dj2.items); writeStorage(dj2.items) }
+          } catch {}
+        }, 1200)
+      }
     }
+    return true
   }, [userId])
 
   const removeItem = useCallback(async (productId: number) => {

@@ -14,3 +14,5 @@ cartRoutes.patch('/update', controller.update.bind(controller))
 cartRoutes.delete('/remove', controller.remove.bind(controller))
 // POST /api/cart/clear
 cartRoutes.post('/clear', controller.clear.bind(controller))
+// POST /api/cart/set
+cartRoutes.post('/set', controller.set.bind(controller))

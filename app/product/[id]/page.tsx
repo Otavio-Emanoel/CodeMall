@@ -47,6 +47,7 @@ export default function ProductDetail() {
   const [editPrice, setEditPrice] = useState("")
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string>("")
+  const [adding, setAdding] = useState(false)
 
   const cart = useCart()
 
@@ -229,11 +230,13 @@ export default function ProductDetail() {
     }
   }
 
-  function handleAddToCart() {
-    if (!product) return
+  async function handleAddToCart() {
+    if (!product || adding) return
+    setAdding(true)
     const firstImage = images[0]?.url ? normalizeUrl(images[0].url) : '/placeholder.svg'
-    cart.addItem({ productId: product.id, name: product.name, price: product.price, image: firstImage, sellerId: product.seller_id })
+    await cart.addItem({ productId: product.id, name: product.name, price: product.price, image: firstImage, sellerId: product.seller_id })
     toast({ title: 'Adicionado ao carrinho', description: `${product.name} foi adicionado.` })
+    setTimeout(()=> setAdding(false), 1000)
   }
 
   return (
@@ -291,7 +294,9 @@ export default function ProductDetail() {
                 >
                   Comprar agora
                 </Link>
-                <Button variant="outline" className="px-5 py-3" onClick={handleAddToCart}>Adicionar ao carrinho</Button>
+                <Button variant="outline" className={`px-5 py-3 ${adding ? 'border-green-600 text-green-700 animate-pulse' : ''}`} onClick={handleAddToCart} disabled={adding}>
+                  {adding ? 'Adicionado!' : 'Adicionar ao carrinho'}
+                </Button>
               </div>
 
               <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">

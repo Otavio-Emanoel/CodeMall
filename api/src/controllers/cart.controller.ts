@@ -41,4 +41,12 @@ export class CartController {
     await cartService.clear(userId)
     res.json({ items: [] })
   }
+
+  async set(req: Request, res: Response) {
+    const userId = Number(req.body.userId)
+    const { items } = req.body
+    if (!userId || !Array.isArray(items)) return res.status(400).json({ error: 'userId e items obrigatórios' })
+    const updated = await cartService.setCart(userId, items)
+    res.json({ items: updated })
+  }
 }

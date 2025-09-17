@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useCart } from '@/hooks/use-cart'
 import { toast } from '@/components/ui/use-toast'
+import { ArrowLeft } from 'lucide-react'
 
 export default function ProductsPage() {
   const router = useRouter()
@@ -24,6 +25,7 @@ export default function ProductsPage() {
   const cart = useCart()
   const [productImages, setProductImages] = useState<Record<number, string[]>>({})
   const [imageIndexes, setImageIndexes] = useState<Record<number, number>>({})
+  const [addingId, setAddingId] = useState<number | null>(null)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'
   function normalizeUrl(u?: string) {
     if (!u) return '/placeholder.svg'
@@ -94,16 +96,23 @@ export default function ProductsPage() {
     return () => clearInterval(interval)
   }, [products, productImages])
 
-  function addToCart(item: any) {
+  async function addToCart(item: any) {
+    setAddingId(item.id)
     const firstImg = (productImages[item.id] && productImages[item.id][0]) || item.image_url || '/placeholder.svg'
-    cart.addItem({ productId: item.id, name: item.name, price: item.price, image: firstImg, sellerId: item.seller_id })
+    await cart.addItem({ productId: item.id, name: item.name, price: item.price, image: firstImg, sellerId: item.seller_id })
     toast({ title: 'Adicionado ao carrinho', description: `${item.name} foi adicionado.` })
+    setTimeout(()=> setAddingId(prev => prev===item.id? null: prev), 1000)
   }
 
   return (
     <div className="px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Todos os produtos</h2>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => router.push('/')} className="flex items-center gap-2 px-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar
+          </Button>
+          <h2 className="text-2xl font-bold">Todos os produtos</h2>
+        </div>
         <div className="flex gap-2">
           <input
             defaultValue={qParam}
@@ -162,7 +171,7 @@ export default function ProductsPage() {
                   </Link>
                   <div className="flex items-center justify-between">
                     <div className="text-sage-700 font-bold">R$ {item.price}</div>
-                    <Button size="sm" className="bg-sage-600 hover:bg-sage-700 text-white" onClick={() => addToCart(item)}>+
+                    <Button size="sm" className={`text-white ${addingId===item.id ? 'bg-green-600 animate-pulse' : 'bg-sage-600 hover:bg-sage-700'}`} onClick={() => addToCart(item)}>+
                     </Button>
                   </div>
                 </CardContent>

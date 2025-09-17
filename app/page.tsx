@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [products, setProducts] = useState<any[]>([])
   const [featured, setFeatured] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [addingId, setAddingId] = useState<number | null>(null)
   // Novo: imagens por produto e índice atual do carrossel
   const [productImages, setProductImages] = useState<Record<number, string[]>>({})
   const [imageIndexes, setImageIndexes] = useState<Record<number, number>>({})
@@ -147,10 +148,12 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [featured, productImages])
 
-  const addToCart = useCallback((item: any) => {
+  const addToCart = useCallback(async (item: any) => {
+    setAddingId(item.id)
     const firstImg = (productImages[item.id] && productImages[item.id][0]) || item.image_url || '/placeholder.svg'
-    cart.addItem({ productId: item.id, name: item.name, price: item.price, image: firstImg, sellerId: item.seller_id })
+    await cart.addItem({ productId: item.id, name: item.name, price: item.price, image: firstImg, sellerId: item.seller_id })
     toast({ title: "Adicionado ao carrinho", description: `${item.name} foi adicionado.` })
+    setTimeout(() => setAddingId(prev => prev === item.id ? null : prev), 1200)
   }, [productImages, cart])
 
   return (
@@ -276,8 +279,8 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-2xl font-bold text-sage-800">R$ {item.price}</p>
                       <Button
-                        className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-5 shadow-lg hover:shadow-xl transition-colors z-30"
-                        onClick={(e) => { e.stopPropagation(); addToCart(item) }}
+                        className={`rounded-full px-5 shadow-lg hover:shadow-xl transition-colors z-30 text-white ${addingId===item.id ? 'bg-green-600 animate-pulse' : 'bg-sage-600 hover:bg-sage-700'}`}
+                        onClick={async (e) => { e.stopPropagation(); await addToCart(item) }}
                       >
                         <ShoppingCart className="h-4 w-4 mr-2" />
                         Carrinho
